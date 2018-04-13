@@ -103,7 +103,7 @@ enum CS_BITS {                  /* <- denotes added for lab 4 (interupts and exc
     DATA_SIZE,
     LSHF1,
     SET_PRIV,                   /*4*/
-    JREG5, JREG4, JREG3, JREG2, JREG1, JREG0,   /*5*/
+    JNEXT5, JNEXT4, JNEXT3, JNEXT2, JNEXT1, JNEXT0,	/*5*/
 /* MODIFY: you have to add all your new control signals */
     CONTROL_STORE_BITS
 } CS_BITS;
@@ -165,7 +165,7 @@ int GetR_W(int *x)           { return(x[R_W]); }
 int GetDATA_SIZE(int *x)     { return(x[DATA_SIZE]); } 
 int GetLSHF1(int *x)         { return(x[LSHF1]); }
 int GetSET_PRIV(int *x)       { return(x[SET_PRIV]); }
-int GetJNEXT(int *x)         { return( (x[JREG5] << 5) + (x[JREG4] < 4) + (x[JREG3] << 3) + (x[JREG2] << 2) + (x[JREG1] << 1) + x[JREG0] ); }
+int GetJNEXT(int *x)         { return( (x[JNEXT5] << 5) + (x[JNEXT4] < 4) + (x[JNEXT3] << 3) + (x[JNEXT2] << 2) + (x[JNEXT1] << 1) + x[JNEXT0] ); }
 
 /* MODIFY: you can add more Get functions for your new control signals */
 
@@ -737,7 +737,9 @@ void eval_micro_sequencer() {
         printf("%d", opcode[i]);
     }
     printf("\n");
-
+    /*
+    int IRD = GetIRD(CURRENT_LATCHES.MICROINSTRUCTION); // Obsoleted by BR_COND
+    */
     int BR_COND = GetBR_COND(CURRENT_LATCHES.MICROINSTRUCTION);	
 
     int nextStateAddr[6];

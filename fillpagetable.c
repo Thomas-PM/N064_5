@@ -24,7 +24,7 @@ int main(int argc, char* argv[]){
 	int i = 0; // PTE counter
 	for(; i < 24; i++){
 		// System PTEs
-		fprintf(PT, ".fill 0x%02X04 ; PTE %i\n", (i << 1), i);
+		fprintf(PT, ".fill x%02X04 ; PTE %i\n", (i << 1), i);
 	}
 	
     // User PTEs
@@ -50,7 +50,7 @@ int main(int argc, char* argv[]){
                 privledge_bits = 0x0;
                 break;
         }
-			fprintf(PT, ".fill 0x%02X0%01X ; PTE %i\n", frame_number << 1, privledge_bits, i);
+			fprintf(PT, ".fill x%02X0%01X ; PTE %i\n", frame_number << 1, privledge_bits, i);
 	}
 	
 
