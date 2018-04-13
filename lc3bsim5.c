@@ -156,8 +156,8 @@ int GetMARMUX(int *x)        { return(x[MARMUX]); }
 int GetVECTOR_MUX(int *x)                 { return((x[VECTOR_MUX1] << 1) + x[VECTOR_MUX0]); }
 int GetPSR_MUX(int *x)       { return(x[PSR_MUX]); }
 
-int GetPTBRMUX(int *x)      { return(x[PTBR_MUX]); }
-int GetVAMUX(int *x)        { return(x[VA_MUX]); }
+int GetPTBR_MUX(int *x)      { return(x[PTBR_MUX]); }
+int GetVA_MUX(int *x)        { return(x[VA_MUX]); }
 
 int GetALUK(int *x)          { return((x[ALUK1] << 1) + x[ALUK0]); }
 int GetMIO_EN(int *x)        { return(x[MIO_EN]); }
@@ -715,13 +715,12 @@ void eval_micro_sequencer() {
         NEXT_LATCHES.INTV = 0x01;
     }
 
-    int uinstr = CURRENT_LATCHES.MICROINSTRUCTION;
+    int* uinstr = CURRENT_LATCHES.MICROINSTRUCTION;
  	int IR11 = (CURRENT_LATCHES.IR >> 11) & 0x1;
 
 
 	int R  = CURRENT_LATCHES.READY;
 	int BEN = CURRENT_LATCHES.BEN;
-	int Priv = CURRENT_LATCHES.Priv;
 	int Priv = CURRENT_LATCHES.Priv;
     int INT = CURRENT_LATCHES.INTERUPT;
     
@@ -937,7 +936,7 @@ int outPriv_mux;
 int outSP;
 
 int outVA;
-int otuPTBR;
+int outPTBR;
 int outEXCV;
 int outVMLOGIC;
 
@@ -1197,10 +1196,10 @@ void eval_bus_drivers() {
     }
     else if(CURRENT_LATCHES.Priv == 1 && ( (CURRENT_LATCHES.VA >> 3) & 0x1) == 0){
         printf("Priority ACCESS exception - LAB5\n");
-        otuEXCV = 0x04;
+        outEXCV = 0x04;
         NEXT_LATCHES.EX = 1;
     }
-    else if( (CURRENT_LATCHES.VA >> 4) & 0x01 = 0){
+    else if( (CURRENT_LATCHES.VA >> 4) & 0x01 == 0){
         printf("Page fault exception - LAB5\n");
         outEXCV = 0x02;
         NEXT_LATCHES.EX = 1;
@@ -1271,7 +1270,7 @@ void drive_bus() {
     }
     if(GetGATE_VMLOGIC(uinstr)){
         BUS = outVMLOGIC;
-        drive ++;
+        drives ++;
     }
     if(drives > 1){
         printf("Drive Bus error: number of drives = %i", drives);
