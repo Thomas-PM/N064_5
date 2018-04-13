@@ -628,6 +628,7 @@ void initialize(char *ucode_filename, char *pagetable_filename, char *program_fi
 	load_program(program_filename,1);
 	while(*program_filename++ != '\0');
     }
+	CURRENT_LATCHES.Priv = 1;   /* Standard User privledge */	
     CURRENT_LATCHES.Z = 1;
     CURRENT_LATCHES.STATE_NUMBER = INITIAL_STATE_NUMBER;
     memcpy(CURRENT_LATCHES.MICROINSTRUCTION, CONTROL_STORE[INITIAL_STATE_NUMBER], sizeof(int)*CONTROL_STORE_BITS);
