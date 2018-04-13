@@ -69,6 +69,11 @@ enum CS_BITS {                  /* <- denotes added for lab 4 (interupts and exc
 	LD_SSP,                     /*4*/
 	LD_USP,                     /*4*/
 	LD_VECTOR,                  /*4*/
+	LD_MODIFY,					/*5*/
+	LD_EXCV,					/*5*/
+    LD_VA,                      /*5*/
+	LD_JREG,					/*5*/
+    LD_ACCESSSIZE,              /*5*/
     GATE_PC,
     GATE_MDR,
     GATE_ALU,
@@ -78,6 +83,9 @@ enum CS_BITS {                  /* <- denotes added for lab 4 (interupts and exc
 	GATE_PC_Minus,              /*4*/
 	GATE_PSR,                   /*4*/
 	GATE_SP,                    /*4*/
+    GATE_PTBR,                  /*5*/
+    GATE_VA,                    /*5*/
+	GATE_VMLOGIC,				/*5*/
     PCMUX1, PCMUX0,
     DRMUX1, DRMUX0,
     SR1MUX1, SR1MUX0,
@@ -87,12 +95,15 @@ enum CS_BITS {                  /* <- denotes added for lab 4 (interupts and exc
     MARMUX,
 	VECTOR_MUX1, VECTOR_MUX0,   /*4*/
 	PSR_MUX,                    /*4*/
+	PTBR_MUX,					/*5*/
+	VA_MUX,						/*5*/
     ALUK1, ALUK0,
     MIO_EN,
     R_W,
     DATA_SIZE,
     LSHF1,
     SET_PRIV,                   /*4*/
+
 /* MODIFY: you have to add all your new control signals */
     CONTROL_STORE_BITS
 } CS_BITS;
@@ -114,6 +125,13 @@ int GetLD_PRIV(int *x)       { return(x[LD_PRIV]); }
 int GetLD_SSP(int *x)       { return(x[LD_SSP]); }
 int GetLD_USP(int *x)       { return(x[LD_USP]); }
 int GetLD_VECTOR(int *x)       { return(x[LD_VECTOR]); }
+
+int GetLD_MODIFY(int *x)       { return(x[LD_MODIFY]); }
+int GetLD_EXCV(int *x)       { return(x[LD_EXCV]); }
+int GetLD_VA(int *x)        {return(x[LD_VA]);}
+int GetLD_JREG(int *x)       { return(x[LD_JREG]); }
+int GetLD_ACCESSSIZE(int *x)    { return (x[LD_ACCESSSIZE]); };
+
 int GetGATE_PC(int *x)       { return(x[GATE_PC]); }
 int GetGATE_MDR(int *x)      { return(x[GATE_MDR]); }
 int GetGATE_ALU(int *x)      { return(x[GATE_ALU]); }
@@ -123,6 +141,11 @@ int GetGATE_VECTOR(int *x)       { return(x[GATE_VECTOR]); }
 int GetGATE_PC_MINUS(int *x)       { return(x[GATE_PC_Minus]); }
 int GetGATE_PSR(int *x)       { return(x[GATE_PSR]); }
 int GetGATE_SP(int *x)       { return(x[GATE_SP]); }
+
+int GetGATE_PTBR(int *x)    { return(x[GATE_PTBR]);}
+int GetGATE_VA(int *x)      { return(x[GATE_VA]);}
+int GetGATE_VMLOGIC(int *x)      { return(x[GATE_VMLOGIC]);}
+
 int GetPCMUX(int *x)         { return((x[PCMUX1] << 1) + x[PCMUX0]); }
 int GetDRMUX(int *x)         { return(x[DRMUX1] << 1) + x[DRMUX0]; }
 int GetSR1MUX(int *x)        { return(x[SR1MUX1] << 1) + x[SR1MUX0]; }
@@ -132,6 +155,10 @@ int GetSP_MUX(int *x)            { return((x[SP_MUX1] << 1) + x[SP_MUX0]); }
 int GetMARMUX(int *x)        { return(x[MARMUX]); }
 int GetVECTOR_MUX(int *x)                 { return((x[VECTOR_MUX1] << 1) + x[VECTOR_MUX0]); }
 int GetPSR_MUX(int *x)       { return(x[PSR_MUX]); }
+
+int GetPTBRMUX(int *x)      { return(x[PTBR_MUX]); }
+int GetVAMUX(int *x)        { return(x[VA_MUX]); }
+
 int GetALUK(int *x)          { return((x[ALUK1] << 1) + x[ALUK0]); }
 int GetMIO_EN(int *x)        { return(x[MIO_EN]); }
 int GetR_W(int *x)           { return(x[R_W]); }
@@ -207,6 +234,9 @@ int PTBR; /* This is initialized when we load the page table */
 int VA;   /* Temporary VA register */
 int EX;         /* Exception call from memory access  */
 int INTERUPT;			/* interupt signal (INT) */
+int Modify;     /* Tells VM Logic if should set PTE modifyied bit */
+int ACCESSSIZE; /* Tells VM Logic size of memory to calculate unaligned access violations */ 
+int JREG;       /* Holds state number of where to return from VA translation. Sorry, I didn't get creative */
 /* MODIFY: you should add here any other registers you need to implement virtual memory */
 
 } System_Latches;
@@ -684,11 +714,18 @@ void eval_micro_sequencer() {
         NEXT_LATCHES.INTERUPT = 1; /*  Request interupt signal  */
         NEXT_LATCHES.INTV = 0x01;
     }
-    int COND = GetCOND(CURRENT_LATCHES.MICROINSTRUCTION);
-	int BEN = CURRENT_LATCHES.BEN;
-	int R  = CURRENT_LATCHES.READY;
+
+    int uinstr = CURRENT_LATCHES.MICROINSTRUCTION;
  	int IR11 = (CURRENT_LATCHES.IR >> 11) & 0x1;
+
+
+	int R  = CURRENT_LATCHES.READY;
+	int BEN = CURRENT_LATCHES.BEN;
 	int Priv = CURRENT_LATCHES.Priv;
+	int Priv = CURRENT_LATCHES.Priv;
+    int INT = CURRENT_LATCHES.INTERUPT;
+    
+    int COND = GetCOND(CURRENT_LATCHES.MICROINSTRUCTION);
 
 	int opcode[4];
     int i = 0;
@@ -698,12 +735,47 @@ void eval_micro_sequencer() {
         printf("%d", opcode[i]);
     }
     printf("\n");
-	int IRD = GetIRD(CURRENT_LATCHES.MICROINSTRUCTION); 
-	int nextStateAddr[6];
+
+    int IRD = GetIRD(CURRENT_LATCHES.MICROINSTRUCTION); 
+    int BR_COND = 0; /*TODO*/	
+
+    int nextStateAddr[6];
     int J = GetJ(CURRENT_LATCHES.MICROINSTRUCTION);
-    NEXT_LATCHES.EX = 0;
+    int Jnext = 0; /* TODO */
+    NEXT_LATCHES.EX = 0; /* Clear exception flag */
+
+
     printf("___________________________________________________\n");
-	if(CURRENT_LATCHES.EX && COND == 1){ /* Branch to state 63, the memory access exception state */
+	switch(BR_COND){
+    case 0:
+        nextStateAddr[0] = (J & 0x1) || ( (COND == 3) && IR11);
+        nextStateAddr[1] = ( (J >> 1) & 0x1) || ( (COND == 1) && R);
+        nextStateAddr[2] = ( (J >> 2) & 0x1) || ( (COND == 2) && BEN);
+        nextStateAddr[3] = ( (J >> 3) & 0x1) || ( (COND == 4) && Priv);
+        nextStateAddr[4] = ( (J >> 4) & 0x1) || ( (COND == 5) && CURRENT_LATCHES.INTERUPT);
+        nextStateAddr[5] = ( (J >> 5) & 0x1);
+        
+        break;
+    case 1:
+        nextStateAddr[0] = opcode[0];
+        nextStateAddr[1] = opcode[1];
+        nextStateAddr[2] = opcode[2];
+        nextStateAddr[3] = opcode[3];
+        nextStateAddr[4] = 0;
+        nextStateAddr[5] = 0;
+
+        break;
+    case 2:
+        nextStateAddr[0] = Jnext & 0x1;
+        nextStateAddr[1] = (Jnext >> 1) & 0x1;
+        nextStateAddr[2] = (Jnext >> 2) & 0x1;
+        nextStateAddr[3] = (Jnext >> 3) & 0x1;
+        nextStateAddr[4] = (Jnext >> 4) & 0x1;
+        nextStateAddr[5] = (Jnext >> 5) & 0x1;
+
+        break;
+    case 3:
+        if(CURRENT_LATCHES.EX){
         nextStateAddr[0] = 1;
         nextStateAddr[1] = 1;
         nextStateAddr[2] = 1;
@@ -711,6 +783,30 @@ void eval_micro_sequencer() {
         nextStateAddr[4] = 1;
         nextStateAddr[5] = 1;
 		printf("**************/////////////// MEMORY EXCEPTION  /////////////**********************\n");	
+            
+        }
+        else{
+        nextStateAddr[0] = 0;
+        nextStateAddr[1] = 1;
+        nextStateAddr[2] = 1;
+        nextStateAddr[3] = 1;
+        nextStateAddr[4] = 0;
+        nextStateAddr[5] = 1;
+
+        }
+        break;
+
+    }
+    /*
+    if(CURRENT_LATCHES.EX && COND == 1){*/ /* Branch to state 63, the memory access exception state */
+    /*
+        nextStateAddr[0] = 1;
+        nextStateAddr[1] = 1;
+        nextStateAddr[2] = 1;
+        nextStateAddr[3] = 1;
+        nextStateAddr[4] = 1;
+        nextStateAddr[5] = 1;
+		printf("************************* MEMORY EXCEPTION  ********************** /n");	
 	}
     else if(IRD){
         nextStateAddr[0] = opcode[0];
@@ -729,6 +825,9 @@ void eval_micro_sequencer() {
         nextStateAddr[5] = ( (J >> 5) & 0x1);
 
     }
+    */ 
+
+
 	if(CURRENT_LATCHES.INTERUPT && CURRENT_LATCHES.STATE_NUMBER == 18 || CURRENT_LATCHES.STATE_NUMBER == 19){
 		printf("//////////////////////***************** INTERUPT ****************////////////////////\n");
         NEXT_LATCHES.INTERUPT = 0; 
@@ -760,25 +859,7 @@ int TRAP = 0xF;
 void cycle_memory() {
     if( GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION) ){
         /*  Enable memory  */
-	
-		/*  Check for Exception  */
-		NEXT_LATCHES.EXCV = 0;
-		if(GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION) == 1 && CURRENT_LATCHES.MAR%2 == 1){
-			/*  Unaligned Access  */ 
-            printf("++++++++++++++++++  unaligned access ++++++++++++++++++++++++++++++++\n");
-			NEXT_LATCHES.EXCV = 0x03; 
-		}
-		if( CURRENT_LATCHES.MAR < 0x3000 && CURRENT_LATCHES.Priv == 1 && (CURRENT_LATCHES.IR >> 12) != TRAP){ 
-            printf("------------------  privelege access (curr priv = %i -------------------------------\n", CURRENT_LATCHES.Priv);
-			/*  Protection Exception  */ 
-			NEXT_LATCHES.EXCV = 0X02; 
-		} 
-		if( NEXT_LATCHES.EXCV != 0){ 
-			/* There is a memory based exception, raise EX signal  */ 
-    		NEXT_LATCHES.EX = 1; 
-			memCycles = 0;
-            return;
-		}
+
 
         if(CURRENT_LATCHES.READY){
             NEXT_LATCHES.READY = 0;
@@ -855,6 +936,13 @@ int outZ_mux;
 int outPriv_mux;
 int outSP;
 
+int outVA;
+int otuPTBR;
+int outEXCV;
+int outVMLOGIC;
+
+
+
 
 /* 
  * Datapath routine emulating operations before driving the bus.
@@ -870,6 +958,10 @@ int outSP;
  *		Gate_PSR,
  *		Gate_SP,
  *		GateP
+ * As of lab 5:
+ *      GatePTBR
+ *      GateVA
+ *      GateVMLOGIC
  */   
 void eval_bus_drivers() {
     int* uinstr = CURRENT_LATCHES.MICROINSTRUCTION;
@@ -1078,6 +1170,50 @@ void eval_bus_drivers() {
     }
     outSP = Low16bits(outSP);
     printf("outSP = 0x%4x, from SP_MUX = %i\n", outSP, GetSP_MUX(uinstr) );
+
+	/* Set out PTBRMUX */
+	if(GetPTBR_MUX(uinstr)){
+        outPTBR = CURRENT_LATCHES.PTBR;
+    }
+    else{
+        outPTBR = CURRENT_LATCHES.PTBR + ((CURRENT_LATCHES.VA & PTE_PFN_MASK) >> 8); 
+    }
+
+    /* Set out VAMUX */
+    if(GetVA_MUX(uinstr)){
+        outVA = CURRENT_LATCHES.VA;
+    }
+    else{
+        outVA = (CURRENT_LATCHES.MDR & PTE_PFN_MASK) + (CURRENT_LATCHES.VA & PAGE_OFFSET_MASK);
+    }
+    
+
+    /* Simmulate Virtual Memory Logic */
+    if(CURRENT_LATCHES.ACCESSSIZE == 1 && ( (CURRENT_LATCHES.VA & 0x01) == 1) ){
+        /* Unaligned Access */
+        printf("UNALIGNED ACCESS exception - LAB5\n");
+        outEXCV = 0x03;
+        NEXT_LATCHES.EX = 1;
+    }
+    else if(CURRENT_LATCHES.Priv == 1 && ( (CURRENT_LATCHES.VA >> 3) & 0x1) == 0){
+        printf("Priority ACCESS exception - LAB5\n");
+        otuEXCV = 0x04;
+        NEXT_LATCHES.EX = 1;
+    }
+    else if( (CURRENT_LATCHES.VA >> 4) & 0x01 = 0){
+        printf("Page fault exception - LAB5\n");
+        outEXCV = 0x02;
+        NEXT_LATCHES.EX = 1;
+    }
+    else{
+        outEXCV = 0x00;
+        NEXT_LATCHES.EX = 0;
+        int updPTE_mask = 0x01 | CURRENT_LATCHES.Modify << 1;
+        outVMLOGIC = CURRENT_LATCHES.VA | updPTE_mask;
+    }
+
+    
+
 }
 
 
@@ -1124,6 +1260,18 @@ void drive_bus() {
     if(GetGATE_SP(uinstr)){
         BUS = outSP;
         drives ++;
+    }
+    if(GetGATE_PTBR(uinstr)){
+        BUS = outPTBR;
+        drives ++;
+    }
+    if(GetGATE_VA(uinstr)){
+        BUS = outVA;
+        drives ++;
+    }
+    if(GetGATE_VMLOGIC(uinstr)){
+        BUS = outVMLOGIC;
+        drive ++;
     }
     if(drives > 1){
         printf("Drive Bus error: number of drives = %i", drives);
@@ -1253,6 +1401,22 @@ void latch_datapath_values() {
     if(GetLD_USP(uinstr)){
         NEXT_LATCHES.USP = outSR1;
     }
+    if(GetLD_MODIFY(uinstr)){
+        NEXT_LATCHES.Modify = GetR_W(uinstr);
+    }
+    if(GetLD_EXCV(uinstr)){
+        NEXT_LATCHES.EXCV = outEXCV;
+    }
+    if(GetLD_VA(uinstr)){
+        NEXT_LATCHES.VA = BUS;
+    }
+    if(GetLD_JREG(uinstr)){
+        NEXT_LATCHES.JREG = 0; /* TODO */
+    }
+    if(GetLD_ACCESSSIZE(uinstr)){
+        NEXT_LATCHES.ACCESSSIZE = GetDATA_SIZE(uinstr);
+    }
+
 }
 
 
