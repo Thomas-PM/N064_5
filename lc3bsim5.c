@@ -1136,10 +1136,10 @@ void eval_bus_drivers() {
             outVectorMux = CURRENT_LATCHES.EXCV;
             break;
         case 2:
-            outVectorMux = 0x04;
+            outVectorMux = 0x05;
             break;
         default:
-            outVectorMux = 0x02;
+            outVectorMux = 0x04;
             break;
     }
     
