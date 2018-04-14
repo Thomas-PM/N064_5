@@ -1216,6 +1216,7 @@ void eval_bus_drivers() {
         int updPTE_mask = 0x01 | CURRENT_LATCHES.Modify << 1;
         outVMLOGIC = CURRENT_LATCHES.MDR | updPTE_mask;
     }
+    printf("    Access Size = %i, Modify = %i \n", CURRENT_LATCHES.ACCESSSIZE, CURRENT_LATCHES.Modify);
     printf("    Current MAR (from VM Logic) = 0x%04x\n", CURRENT_LATCHES.MAR);
     printf("    PTE (from MDR in VM Logic) = 0x%04x\n", CURRENT_LATCHES.MDR);
     printf("    VM LOGIC:   PTE out = 0x%04x,  exception = %i\n", outVMLOGIC, NEXT_LATCHES.EX);
