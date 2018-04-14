@@ -165,7 +165,7 @@ int GetR_W(int *x)           { return(x[R_W]); }
 int GetDATA_SIZE(int *x)     { return(x[DATA_SIZE]); } 
 int GetLSHF1(int *x)         { return(x[LSHF1]); }
 int GetSET_PRIV(int *x)       { return(x[SET_PRIV]); }
-int GetJNEXT(int *x)         { return( (x[JNEXT5] << 5) + (x[JNEXT4] < 4) + (x[JNEXT3] << 3) + (x[JNEXT2] << 2) + (x[JNEXT1] << 1) + x[JNEXT0] ); }
+int GetJNEXT(int *x)         { return( (x[JNEXT5] << 5) + (x[JNEXT4] << 4) + (x[JNEXT3] << 3) + (x[JNEXT2] << 2) + (x[JNEXT1] << 1) + x[JNEXT0] ); }
 
 /* MODIFY: you can add more Get functions for your new control signals */
 
@@ -249,6 +249,7 @@ System_Latches CURRENT_LATCHES, NEXT_LATCHES;
 
 /* For lab 5 */
 #define PAGE_NUM_BITS 9
+#define VA_VFN_MASK 0xFE00
 #define PTE_PFN_MASK 0x3E00
 #define PTE_VALID_MASK 0x0004
 #define PAGE_OFFSET_MASK 0x1FF
@@ -840,6 +841,7 @@ void eval_micro_sequencer() {
     printf("**************Current state %d\n", CURRENT_LATCHES.STATE_NUMBER);
     NEXT_LATCHES.STATE_NUMBER = nextState;
     printf("**************NEXT state %d\n",NEXT_LATCHES.STATE_NUMBER);
+    printf(" PC : 0X%04X\n", CURRENT_LATCHES.PC);
 	for(i = 0; i < CONTROL_STORE_BITS; i++){
         /* printf("%d", CONTROL_STORE[nextState][i]); */
         NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[nextState][i];
@@ -984,7 +986,6 @@ void eval_bus_drivers() {
             break;
 	}
     outSR1 = Low16bits(outSR1);
-    printf("SR1 = 0x%4x\n", outSR1);
     
     /*  set SR2  */
     if( (CURRENT_LATCHES.IR >> 5) & 0x1){
@@ -994,7 +995,6 @@ void eval_bus_drivers() {
         outSR2MUX = CURRENT_LATCHES.REGS[ (CURRENT_LATCHES.IR) & 0x7];
     }
     outSR2MUX = Low16bits(outSR2MUX);
-	printf("SR2 = 0x%4x\n", outSR2MUX);
 
 
     /*  Set ALU  */	
@@ -1018,7 +1018,6 @@ void eval_bus_drivers() {
         break;
     }
     outALU = Low16bits(outALU);
-    printf("ALU output: 0x%4x\n", outALU);
 
 
 
@@ -1172,23 +1171,26 @@ void eval_bus_drivers() {
         break;
     }
     outSP = Low16bits(outSP);
-    printf("outSP = 0x%4x, from SP_MUX = %i\n", outSP, GetSP_MUX(uinstr) );
 
 	/* Set out PTBRMUX */
-	if(GetPTBR_MUX(uinstr)){
+	if(GetPTBR_MUX(uinstr) == 0){
         outPTBR = CURRENT_LATCHES.PTBR;
     }
     else{
-        outPTBR = CURRENT_LATCHES.PTBR + ((CURRENT_LATCHES.VA & PTE_PFN_MASK) >> 8); 
+        outPTBR = CURRENT_LATCHES.PTBR + ((CURRENT_LATCHES.VA & VA_VFN_MASK) >> 8); 
+    
     }
+	printf("    outPTBR = 0x%04x\n", outPTBR);
 
     /* Set out VAMUX */
-    if(GetVA_MUX(uinstr)){
+    if(GetVA_MUX(uinstr) == 0){
         outVA = CURRENT_LATCHES.VA;
     }
     else{
         outVA = (CURRENT_LATCHES.MDR & PTE_PFN_MASK) + (CURRENT_LATCHES.VA & PAGE_OFFSET_MASK);
     }
+    printf("    Current VA register = 0x%04x\n", CURRENT_LATCHES.VA);
+    printf("    outVA = 0x%04x\n", outVA);
     
 
     /* Simmulate Virtual Memory Logic */
@@ -1198,12 +1200,12 @@ void eval_bus_drivers() {
         outEXCV = 0x03;
         NEXT_LATCHES.EX = 1;
     }
-    else if(CURRENT_LATCHES.Priv == 1 && ( (CURRENT_LATCHES.VA >> 3) & 0x1) == 0){
+    else if(CURRENT_LATCHES.Priv == 1 && ( (CURRENT_LATCHES.MDR >> 3) & 0x1) == 0){
         printf("Priority ACCESS exception - LAB5\n");
         outEXCV = 0x04;
         NEXT_LATCHES.EX = 1;
     }
-    else if( (CURRENT_LATCHES.VA >> 4) & 0x01 == 0){
+    else if( (CURRENT_LATCHES.MDR >> 4) & 0x01 == 0){
         printf("Page fault exception - LAB5\n");
         outEXCV = 0x02;
         NEXT_LATCHES.EX = 1;
@@ -1212,12 +1214,15 @@ void eval_bus_drivers() {
         outEXCV = 0x00;
         NEXT_LATCHES.EX = 0;
         int updPTE_mask = 0x01 | CURRENT_LATCHES.Modify << 1;
-        outVMLOGIC = CURRENT_LATCHES.VA | updPTE_mask;
+        outVMLOGIC = CURRENT_LATCHES.MDR | updPTE_mask;
     }
-
+    printf("    Current MAR (from VM Logic) = 0x%04x\n", CURRENT_LATCHES.MAR);
+    printf("    PTE (from MDR in VM Logic) = 0x%04x\n", CURRENT_LATCHES.MDR);
+    printf("    VM LOGIC:   PTE out = 0x%04x,  exception = %i\n", outVMLOGIC, NEXT_LATCHES.EX);
+    printf("    JREG = %i\n", CURRENT_LATCHES.JREG);
+    
     /* Evaluate JREG from JNEXT */
-    inJREG = GetJNEXT(uinstr); /* TODO */ 
-
+    inJREG = GetJNEXT(uinstr);  
     
 
 }
@@ -1283,8 +1288,10 @@ void drive_bus() {
         printf("Drive Bus error: number of drives = %i", drives);
     }
     BUS = Low16bits(BUS);
+/*
     printf("Priv = %i, SSP = 0x%4x, USP = 0x%4x, INTV = 0x%2x, EXCV = 0x%2x, Vector = 0x%4x, EX = %i, INTERUPT = %i\n",CURRENT_LATCHES.Priv, CURRENT_LATCHES.SSP, CURRENT_LATCHES.USP, CURRENT_LATCHES.INTV, CURRENT_LATCHES.EXCV, CURRENT_LATCHES.Vector, CURRENT_LATCHES.EX, CURRENT_LATCHES.INTERUPT); 
     printf("      -- BUS driven to 0x%4x\n", BUS);
+*/
 
 }
 
@@ -1330,7 +1337,6 @@ void latch_datapath_values() {
     else{
         outP_Logic = 1;
     }
-        printf("Logic NZP= %d%d%d\n", outN_Logic, outZ_Logic, outP_Logic);
     
     /*  Set out PSR data path (excluding priority for now)  */
     if(GetPSR_MUX(uinstr) == 1){
@@ -1339,7 +1345,6 @@ void latch_datapath_values() {
         outZ_mux = (BUS >> 1) & 0x1;
         outP_mux = (BUS & 0x1);
         outPriv_mux = (BUS >> 15) & 0x1;
-        printf("PSRMUX == 1, priv = %i\n", (BUS >> 15) & 0x1);
         /*outPriority = (CURRENT_LATCHES.BUS[10] >> 8) + (CURRENT_LATCHES.BUS[9] >> 8) + (CURRENT_LATCHES.BUS[8] >> 0); */
     }
     else{
@@ -1350,7 +1355,6 @@ void latch_datapath_values() {
         outPriv_mux = GetSET_PRIV(CURRENT_LATCHES.MICROINSTRUCTION); 
         /* outPriority = interupt_priority; */
     } 
-    printf("OUT NZP= %d%d%d\n", outN_mux, outZ_mux, outP_mux);
     if(GetLD_CC(uinstr)){
         NEXT_LATCHES.N = outN_mux;
         NEXT_LATCHES.Z = outZ_mux;
@@ -1372,7 +1376,6 @@ void latch_datapath_values() {
         int z = ( (CURRENT_LATCHES.IR >> 10) & 0x1) && CURRENT_LATCHES.Z;
         int p = ( (CURRENT_LATCHES.IR >> 9) & 0x1) && CURRENT_LATCHES.P;
         NEXT_LATCHES.BEN = n || z || p;
-        printf("nzp = %d%d%d, BEN = %d\n", n, z, p, NEXT_LATCHES.BEN);
     }
     if(GetLD_REG(uinstr)){
         switch(GetDRMUX(uinstr) ){
@@ -1386,7 +1389,6 @@ void latch_datapath_values() {
                 break;
             case 2:
                 /*  R6  */
-                printf("Stack Pointer loaded\n");
                 NEXT_LATCHES.REGS[6] = BUS;
                 break;
             defualt:

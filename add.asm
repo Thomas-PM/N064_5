@@ -1,11 +1,5 @@
 .orig x3000
 ;.fill xabcd ; Unkown Opcode
-lea r0 toinit
-ldw r0 r0 #0
-and r1 r1 #0
-add r1 r1 #1
-stw r1 r0 #0
-
 
 lea r0 data
 ldw r0 r0 #0
@@ -32,5 +26,4 @@ data .fill xC000
 tostore .fill xC014 ; Working Code
 ;tostore .fill x0000 ; Protected Access Violation
 ;tostore .fill xC017 ; Unaligned Access
-toinit .fill x4000
 .end
